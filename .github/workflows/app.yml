@@ -63,35 +63,41 @@ jobs:
   #          severity: CRITICAL,HIGH
            
   Deploy:
-    # name: DEPLOY TO EC2
-    # runs-on: ubuntu-latest
-    # needs: build
-    # steps:
-    #   - name: AWS SSM STEP
-    #     uses: peterkimzz/aws-ssm-send-command@v1.1.1
-    #     id: ssm
-    #     with:
-    #       aws-region: ${{ secrets.AWS_REGION }}
-    #       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-    #       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-    #       instance-ids: ${{ secrets.INSTANCE_ID }}
-    #       working-directory: /home/ubuntu
-    #       command: |
-    #        cd /home/ubuntu/nest-app
-    #        bash deploy.sh
-    #       comment: Create example.txt file via AWS SSM
-
-
-    name: Deploy to Cudie Server
+    name: DEPLOY TO EC2
     runs-on: ubuntu-latest
-    environment: Production
+    needs: build
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: AWS SSM STEP
+        uses: peterkimzz/aws-ssm-send-command@v1.1.1
+        id: ssm
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          instance-ids: ${{ secrets.INSTANCE_ID }}
+          working-directory: /home/ubuntu
+          command: |
+           cd /home/ubuntu/nest-app
+           chmod +x deploy.sh
+           /bin/sh deploy.sh
+          comment: Create example.txt file via AWS SSM
+          
+    #   - name: Deploy to Cudie Server
+    #     run: |
+    #       chmod +x deploy.sh
+    #       ./deploy.sh
 
-      - name: Set execute permissions for the script
-        run: chmod +x deploy.sh
 
-      - name: Run deploy script
-        run: /bin/sh deploy.sh
+    # name: Deploy to Cudie Server
+    # runs-on: ubuntu-latest
+    # environment: Production
+    # steps:
+    #   - name: Checkout code
+    #     uses: actions/checkout@v3
+
+    #   - name: Set execute permissions for the script
+    #     run: chmod +x deploy.sh
+
+    #   - name: Run deploy script
+    #     run: /bin/sh deploy.sh
 
