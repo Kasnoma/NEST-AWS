@@ -13,10 +13,10 @@ services:
 #       - '5432:5432'
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    #image: 904233112587.dkr.ecr.us-east-1.amazonaws.com/nest-app
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    image: 904233112587.dkr.ecr.us-east-1.amazonaws.com/nest-app
     container_name: nest-app
     environment:
       - PORT=${PORT}
