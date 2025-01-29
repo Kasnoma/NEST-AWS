@@ -1,0 +1,81 @@
+name: Teeketing Application Deployment
+on:
+  push:
+    branches:
+      - production
+  pull_request:
+    branches: [production]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ECR_REGISTRY: ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+  ECR_REPOSITORY: teeketing-event
+  IMAGE_TAG: ${{ github.sha }}
+  LATEST: latest
+  TASK_DEFINITION_NAME: staging-task-definition
+  ECS_SERVICE: teeketing-api-svc
+  CONTAINER_NAME: teeketing-event-staging
+  CLUSTER_NAME: Teeketing-Staging
+
+jobs:
+  docker-build-push-deploy:
+    name: docker-build-push-deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+        # https://aws.amazon.com/blogs/security/use-iam-roles-to-connect-github-actions-to-actions-in-aws/
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_ID }}:role/${{ secrets.ROLE_NAME }}
+          role-session-name: github_action_session
+          role-duration-seconds: 1200
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      #----------------------------------------------
+      # -----  Login to AWS ECR  -----
+      #----------------------------------------------
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build and push the tagged docker image to Amazon ECR
+        id: build-image
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$LATEST .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$LATEST
+          echo "IMAGE=$ECR_REGISTRY/$ECR_REPOSITORY:$LATEST" >> "$GITHUB_OUTPUT"
+
+      #----------------------------------------------
+      # -----  Download task definition  -----
+      #----------------------------------------------
+
+      - name: Download task definition
+        run: |
+          aws ecs describe-task-definition --task-definition ${{ env.TASK_DEFINITION_NAME }} --query taskDefinition > ${{ env.ECS_SERVICE }}-task-definition.json
+        shell: bash
+
+      #----------------------------------------------
+      # -----  Render Amazon ECS task definition  -----
+      #----------------------------------------------
+
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-defin
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ env.ECS_SERVICE }}-task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build-image.outputs.IMAGE }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-defin.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.CLUSTER_NAME }}
+          wait-for-service-stability: true
